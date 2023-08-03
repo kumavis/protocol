@@ -49,7 +49,7 @@ async fn main() -> Result<(), EigenError> {
 
 			let mnemonic = load_mnemonic();
 			let client = Client::new(config, mnemonic);
-			client.attest(attestation).await?;
+			client.attest(attestation, 1).await?;
 		},
 		Mode::Attestations => handle_attestations(config).await?,
 		Mode::Bandada(bandada_data) => handle_bandada(&config, bandada_data).await?,

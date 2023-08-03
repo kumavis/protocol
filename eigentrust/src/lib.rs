@@ -89,15 +89,15 @@ use std::{
 };
 
 /// Max amount of participants.
-const MAX_NEIGHBOURS: usize = 4;
+const MAX_NEIGHBOURS: usize = 128;
 /// Number of iterations to run the eigen trust algorithm.
 const NUM_ITERATIONS: usize = 20;
 /// Initial score for each participant before the algorithms is run.
 const INITIAL_SCORE: u128 = 1000;
 /// Number of limbs for representing big numbers in threshold checking.
-const _NUM_DECIMAL_LIMBS: usize = 2;
+const _NUM_DECIMAL_LIMBS: usize = 61;
 /// Number of digits of each limbs for threshold checking.
-const _POWER_OF_TEN: usize = 72;
+const _POWER_OF_TEN: usize = 70;
 /// Signer type alias.
 pub type ClientSigner = SignerMiddleware<Provider<Http>, LocalWallet>;
 
@@ -120,6 +120,7 @@ pub struct ClientConfig {
 	pub node_url: String,
 }
 
+#[derive(Debug)]
 /// Score struct.
 pub struct Score {
 	/// Participant address.
@@ -133,6 +134,7 @@ pub struct Score {
 }
 
 /// Client struct.
+#[derive(Clone)]
 pub struct Client {
 	signer: Arc<ClientSigner>,
 	config: ClientConfig,
@@ -163,9 +165,11 @@ impl Client {
 	}
 
 	/// Submits an attestation to the attestation station.
-	pub async fn attest(&self, attestation: AttestationRaw) -> Result<(), EigenError> {
+	pub async fn attest(
+		&self, attestation: AttestationRaw, account_id: u32,
+	) -> Result<(), EigenError> {
 		let ctx = SECP256K1;
-		let secret_keys = ecdsa_secret_from_mnemonic(&self.mnemonic, 1)?;
+		let secret_keys = ecdsa_secret_from_mnemonic(&self.mnemonic, account_id)?;
 
 		let attestation_eth = AttestationEth::from(attestation);
 		let attestation_fr = attestation_eth.to_attestation_fr()?;
@@ -177,7 +181,7 @@ impl Client {
 		let signature: RecoverableSignature = ctx.sign_ecdsa_recoverable(
 			&Message::from_slice(att_hash.to_bytes().as_slice())
 				.map_err(|e| EigenError::RecoveryError(e.to_string()))?,
-			&secret_keys[0],
+			&secret_keys[account_id as usize - 1],
 		);
 
 		let signature_raw = SignatureRaw::from(signature);
@@ -201,8 +205,7 @@ impl Client {
 
 		let tx_call = as_contract.attest(vec![contract_data]);
 		let tx_res = tx_call.send().await;
-		let tx = tx_res
-			.map_err(|_| EigenError::TransactionError("Transaction send failed".to_string()))?;
+		let tx = tx_res.map_err(|e| EigenError::TransactionError(e.to_string()))?;
 		let res = tx.await.map_err(|_| {
 			EigenError::TransactionError("Transaction resolution failed".to_string())
 		})?;
@@ -431,7 +434,7 @@ mod lib_tests {
 
 		// Attest
 		let attestation = AttestationRaw::new([0; 20], [0; 20], 5, [0; 32]);
-		assert!(updated_client.attest(attestation).await.is_ok());
+		assert!(updated_client.attest(attestation, 1).await.is_ok());
 
 		drop(anvil);
 	}
@@ -486,7 +489,7 @@ mod lib_tests {
 
 		let attestation = AttestationRaw::new(about_bytes, domain_input, value, message);
 
-		client.attest(attestation.clone()).await.unwrap();
+		client.attest(attestation.clone(), 1).await.unwrap();
 
 		let attestations = client.get_attestations().await.unwrap();
 
