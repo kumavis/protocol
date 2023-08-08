@@ -55,6 +55,28 @@ pub fn ecdsa_secret_from_mnemonic(
 	Ok(keys)
 }
 
+/// Returns the requested child from the given mnemonic
+/// following the standard derivation path
+pub fn child_from_mnemonic(mnemonic: &str, child: u32) -> Result<SecretKey, EigenError> {
+	let mnemonic = Mnemonic::<English>::new_from_phrase(mnemonic)
+		.map_err(|e| EigenError::ParsingError(e.to_string()))?;
+
+	// The hardened derivation flag.
+	const BIP32_HARDEN: u32 = 0x8000_0000;
+
+	let derivation_path: Vec<u32> =
+		vec![44 + BIP32_HARDEN, 60 + BIP32_HARDEN, BIP32_HARDEN, 0, child];
+
+	let derived_pk = mnemonic
+		.derive_key(&derivation_path, None)
+		.map_err(|e| EigenError::ParsingError(e.to_string()))?;
+
+	let raw_pk: &SigningKey = derived_pk.as_ref();
+
+	SecretKey::from_slice(raw_pk.to_bytes().as_slice())
+		.map_err(|e| EigenError::ParsingError(e.to_string()))
+}
+
 /// Constructs an Ethereum address for the given ECDSA public key.
 pub fn address_from_public_key(pub_key: &ECDSAPublicKey) -> Address {
 	let pub_key_bytes: [u8; 65] = pub_key.serialize_uncompressed();

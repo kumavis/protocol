@@ -66,7 +66,7 @@ use eigentrust_zk::{
 	ecdsa::native::PublicKey,
 };
 use error::EigenError;
-use eth::{address_from_public_key, ecdsa_secret_from_mnemonic, scalar_from_address};
+use eth::{address_from_public_key, child_from_mnemonic, scalar_from_address};
 use ethers::{
 	abi::{Address, RawLog},
 	contract::EthEvent,
@@ -169,7 +169,7 @@ impl Client {
 		&self, attestation: AttestationRaw, account_id: u32,
 	) -> Result<(), EigenError> {
 		let ctx = SECP256K1;
-		let secret_keys = ecdsa_secret_from_mnemonic(&self.mnemonic, account_id)?;
+		let secret_key = child_from_mnemonic(&self.mnemonic, account_id)?;
 
 		let attestation_eth = AttestationEth::from(attestation);
 		let attestation_fr = attestation_eth.to_attestation_fr()?;
@@ -181,7 +181,7 @@ impl Client {
 		let signature: RecoverableSignature = ctx.sign_ecdsa_recoverable(
 			&Message::from_slice(att_hash.to_bytes().as_slice())
 				.map_err(|e| EigenError::RecoveryError(e.to_string()))?,
-			&secret_keys[account_id as usize - 1],
+			&secret_key,
 		);
 
 		let signature_raw = SignatureRaw::from(signature);
@@ -383,9 +383,21 @@ impl Client {
 		Ok(())
 	}
 
+	/// Sets config.
+	pub fn set_config(&mut self, config: ClientConfig) -> &mut Self {
+		self.config = config;
+		self
+	}
+
 	/// Gets config.
 	pub fn get_config(&self) -> &ClientConfig {
 		&self.config
+	}
+
+	/// Sets signer.
+	pub fn set_signer(&mut self, signer: ClientSigner) -> &mut Self {
+		self.signer = Arc::new(signer);
+		self
 	}
 
 	/// Gets signer.

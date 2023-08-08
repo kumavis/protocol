@@ -291,7 +291,7 @@ pub struct AttestationRaw {
 	/// Unique identifier for the action being rated
 	pub(crate) domain: [u8; 20],
 	/// Given rating for the action
-	pub(crate) value: u8,
+	pub(crate) value: u8, // If number could be up to INITIAL_SCORE so at least u16
 	/// Optional field for attaching additional information to the attestation
 	pub(crate) message: [u8; 32],
 }

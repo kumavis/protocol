@@ -915,6 +915,7 @@ dependencies = [
  "csv",
  "eigentrust-zk",
  "ethers",
+ "futures",
  "log",
  "secp256k1 0.27.0",
  "serde",
